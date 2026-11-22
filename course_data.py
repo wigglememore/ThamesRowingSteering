@@ -68,10 +68,11 @@ def load_course(fairway_path: Path, buoys_path: Path) -> Course:
         if coordinates is None:
             continue
         line = _parse_coordinates(coordinates.text)
+        # The source KML names are reversed for the race's downstream direction.
         if "port" in name:
-            port_limit = line
-        elif "starboard" in name:
             starboard_limit = line
+        elif "starboard" in name:
+            port_limit = line
 
     if len(port_limit) < 2 or len(starboard_limit) < 2:
         raise ValueError("Fairway KML must contain port and starboard limit LineStrings")
