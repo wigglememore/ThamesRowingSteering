@@ -4,7 +4,12 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from course_data import load_course, load_gpx
+from course_analysis import (
+    build_centerline,
+    build_fairway_polygon,
+    calculate_steering_metrics,
+)
+from course_data import GPSTrace, load_course, load_gpx, parse_track_metadata
 from course_drawing import create_course_figure
 
 
@@ -18,9 +23,23 @@ def main() -> None:
     gps_directory = repository_root / "GPS_traces"
     for path in sorted(gps_directory.rglob("*.gpx")):
         name = path.relative_to(gps_directory).with_suffix("").as_posix()
-        tracks.append((name, load_gpx(path)))
+        tracks.append(
+            GPSTrace(
+                name=name,
+                metadata=parse_track_metadata(path, gps_directory),
+                points=load_gpx(path),
+            )
+        )
 
-    create_course_figure(course, tracks, show_buoy_names=True)
+    centerline = build_centerline(course.port_limit, course.starboard_limit)
+    fairway_polygon = build_fairway_polygon(course.port_limit, course.starboard_limit)
+    metrics_by_track = {}
+    for track in tracks:
+        metrics_by_track[track.name] = calculate_steering_metrics(
+            track.points, centerline, fairway_polygon
+        )
+
+    create_course_figure(course, tracks, metrics_by_track=metrics_by_track)
     plt.show()
 
 
