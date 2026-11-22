@@ -31,6 +31,59 @@ class TrackPoint:
     timestamp: Optional[datetime]
 
 
+@dataclass(frozen=True)
+class TrackMetadata:
+    year: str
+    boat_class: str
+    steerer_name: str
+    race: str = "Unknown"
+
+
+@dataclass(frozen=True)
+class GPSTrace:
+    name: str
+    metadata: TrackMetadata
+    points: List[TrackPoint]
+
+
+BOAT_CLASSES = ("1x", "2x", "2-", "4x", "4-", "4x+", "4+", "8+", "8x+")
+RACES = ("HORR", "WEHORR", "Fours Head", "Scullers Head", "Vets Head")
+RACE_TOKENS = {
+    ("HORR",): "HORR",
+    ("WEHORR",): "WEHORR",
+    ("Fours", "Head"): "Fours Head",
+    ("Scullers", "Head"): "Scullers Head",
+    ("Vets", "Head"): "Vets Head",
+}
+
+
+def parse_track_metadata(path: Path, gps_directory: Path) -> TrackMetadata:
+    """Infer year, boat class, and steerer from the trace folder and filename."""
+    relative_path = path.relative_to(gps_directory)
+    year = relative_path.parts[0] if relative_path.parts else "Unknown"
+    if len(year) != 4 or not year.isdigit():
+        year = "Unknown"
+
+    filename_parts = path.stem.split("_")
+    class_index = next(
+        (index for index, part in enumerate(filename_parts) if part in BOAT_CLASSES),
+        None,
+    )
+    boat_class = filename_parts[class_index] if class_index is not None else "Unknown"
+    steerer_parts = filename_parts[class_index + 1:] if class_index is not None else []
+    steerer_name = " ".join(steerer_parts) if steerer_parts else "Unknown"
+    event_parts = filename_parts[:class_index] if class_index is not None else filename_parts
+    race = "Unknown"
+    for tokens, race_name in RACE_TOKENS.items():
+        if any(
+            tuple(event_parts[index:index + len(tokens)]) == tokens
+            for index in range(len(event_parts) - len(tokens) + 1)
+        ):
+            race = race_name
+            break
+    return TrackMetadata(year, boat_class, steerer_name, race)
+
+
 def _parse_coordinates(text: Optional[str]) -> List[Coordinate]:
     if not text:
         return []
